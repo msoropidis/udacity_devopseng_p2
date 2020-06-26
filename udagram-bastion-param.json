@@ -1,0 +1,14 @@
+[
+	{
+		"ParameterKey": "EnvName",
+		"ParameterValue": "Udagram"
+    },
+    {
+		"ParameterKey": "MyKey",
+		"ParameterValue": "testkey"
+    },
+    {
+		"ParameterKey": "SourceIP",
+		"ParameterValue": "0.0.0.0/0"       
+    }
+]

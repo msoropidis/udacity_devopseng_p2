@@ -1,0 +1,86 @@
+Description: >
+    Michael Soropidis - Udacity 2020 Cloud DevOps Engineer Project_2
+    Udagram Bastion Server template.
+
+Parameters:
+
+    EnvName:
+        Description: Prefix environment name for resources.
+        Type: String
+    
+    SourceIP:
+        Description: IP address to restrict access on the bastion server.
+        Type: String
+        Default: 0.0.0.0/0      
+    
+    MyKey:
+        Description: Name of existing key-pair to be used on bastion server.
+        Type: String
+
+Mappings:
+    RegionMap:
+      eu-west-1:
+        HVM64: ami-089cc16f7f08c4457
+
+Resources:
+
+    BastionSecGroup:
+      Type: AWS::EC2::SecurityGroup
+      Properties:
+        GroupDescription: Security group for bastion server access.
+        VpcId:
+          Fn::ImportValue: !Sub '${EnvName}-VPCID'
+        SecurityGroupIngress:
+          - IpProtocol: tcp
+            FromPort: '22'
+            ToPort: '22'
+            CidrIp: !Sub ${SourceIP}
+        SecurityGroupEgress:
+          - IpProtocol: tcp
+            FromPort: '22'
+            ToPort: '22'
+            CidrIp: 0.0.0.0/0
+
+    Bastion:
+      Type: AWS::EC2::Instance
+      DependsOn:
+        - BastionSecGroup
+      Properties:
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            apt-get update -y
+            apt-get install unzip awscli -y
+        SecurityGroupIds:
+          - Ref: BastionSecGroup
+        SubnetId:
+          Fn::ImportValue: !Sub '${EnvName}-PUB1-SN'
+        ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", HVM64]
+        InstanceType: t2.micro
+        KeyName: !Sub ${MyKey}
+
+    EIPB:
+      Type: AWS::EC2::EIP
+      Properties:
+        Domain:
+          Fn::ImportValue: !Sub '${EnvName}-VPCID'
+
+    EIPBAssociation:
+      Type: AWS::EC2::EIPAssociation
+      DependsOn:
+        - Bastion
+        - EIPB
+      Properties:
+        InstanceId:
+          Ref: Bastion
+        AllocationId:
+          Fn::GetAtt:
+            - EIPB
+            - AllocationId
+
+Outputs:
+  PUBIPBastionSRV:
+    Description: Public IP for bastion server.
+    Value: !Join ['', [!GetAtt Bastion.PublicDnsName, !Sub '/32']]
+    Export:
+      Name: !Sub ${EnvName}-BASTION-PUBIP
